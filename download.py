@@ -42,11 +42,14 @@ def is_updated(current: dict, previous: dict) -> bool:
 
 
 # 環境変数 JST_TIME はワークフローで設定される (例: 20260602_0525)
-timestamp = os.environ.get("JST_TIME", "unknown")
-filename  = f"SPAS_{timestamp}.pdf"
-previous  = load_meta()
+timestamp    = os.environ.get("JST_TIME", "unknown")
+filename     = f"SPAS_{timestamp}.pdf"
+previous     = load_meta()
+skip_check   = os.environ.get("SKIP_UPDATE_CHECK", "false").lower() == "true"
 
 print(f"=== ダウンロード開始: {timestamp} ===")
+if skip_check:
+    print("手動実行のため更新チェックをスキップします")
 
 for attempt in range(1, MAX_RETRIES + 1):
     print(f"試行 {attempt}/{MAX_RETRIES}")
@@ -58,7 +61,7 @@ for attempt in range(1, MAX_RETRIES + 1):
             "etag":          r.headers.get("ETag"),
         }
 
-        if not is_updated(current, previous):
+        if not skip_check and not is_updated(current, previous):
             print(f"未更新 (Last-Modified: {current.get('last_modified')})")
             if attempt < MAX_RETRIES:
                 print(f"{RETRY_WAIT // 60} 分後に再試行します...")
