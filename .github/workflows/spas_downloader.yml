@@ -12,6 +12,9 @@ on:
     - cron: '25 14 * * *'  # 23:25 JST
   workflow_dispatch:       # GitHub画面から手動実行も可能
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   download:
     runs-on: ubuntu-latest
