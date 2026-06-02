@@ -1,1 +1,50 @@
+name: SPAS PDF ダウンローダー
 
+on:
+  schedule:
+    # GitHub Actions は UTC 管理のため JST(UTC+9) から9時間引いた時刻を指定
+    - cron: '25 20 * * *'  # 05:25 JST
+    - cron: '25 23 * * *'  # 08:25 JST
+    - cron: '25 2 * * *'   # 11:25 JST
+    - cron: '25 5 * * *'   # 14:25 JST
+    - cron: '25 8 * * *'   # 17:25 JST
+    - cron: '25 11 * * *'  # 20:25 JST
+    - cron: '25 14 * * *'  # 23:25 JST
+  workflow_dispatch:       # GitHub画面から手動実行も可能
+
+jobs:
+  download:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write      # last_meta.txt をコミットするために必要
+
+    steps:
+      - name: リポジトリをチェックアウト
+        uses: actions/checkout@v4
+
+      - name: requests をインストール
+        run: pip install requests
+
+      - name: JST タイムスタンプを設定
+        run: echo "JST_TIME=$(TZ=Asia/Tokyo date '+%Y%m%d_%H%M')" >> $GITHUB_ENV
+
+      - name: SPAS PDF をダウンロード
+        run: python download.py
+        env:
+          JST_TIME: ${{ env.JST_TIME }}
+
+      - name: PDF をアーティファクトとして保存（90日間）
+        uses: actions/upload-artifact@v4
+        with:
+          name: SPAS_${{ env.JST_TIME }}
+          path: "SPAS_*.pdf"
+          retention-days: 90
+          if-no-files-found: warn
+
+      - name: メタ情報をリポジトリにコミット
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add last_meta.txt || true
+          git diff --staged --quiet || git commit -m "meta: $(TZ=Asia/Tokyo date '+%Y-%m-%d %H:%M JST')"
+          git push || true
