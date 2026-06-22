@@ -11,8 +11,8 @@ from pathlib import Path
 
 URL        = "https://www.hbc.co.jp/tecweather/SPAS.pdf"
 META_FILE  = Path("last_meta.txt")   # リポジトリに保存されるメタ情報
-MAX_RETRIES = 6
-RETRY_WAIT  = 300   # 5分
+MAX_RETRIES = 3     # 通信エラー時のリトライ回数
+RETRY_WAIT  = 15    # 秒（通信エラー時のみ短く待機）
 
 
 def load_meta() -> dict:
@@ -62,14 +62,11 @@ for attempt in range(1, MAX_RETRIES + 1):
         }
 
         if not skip_check and not is_updated(current, previous):
-            print(f"未更新 (Last-Modified: {current.get('last_modified')})")
-            if attempt < MAX_RETRIES:
-                print(f"{RETRY_WAIT // 60} 分後に再試行します...")
-                time.sleep(RETRY_WAIT)
-                continue
-            else:
-                print("最大試行回数に達しました。スキップします。")
-                sys.exit(0)
+            # まだ更新されていない場合は待たずに終了する。
+            # 1日複数回（cron + GASトリガー）実行されるため、
+            # 次回以降の実行で最新版を確実に取得できる。
+            print(f"未更新のため終了します (Last-Modified: {current.get('last_modified')})")
+            sys.exit(0)
 
         r2 = requests.get(URL, timeout=30)
         r2.raise_for_status()
@@ -79,9 +76,10 @@ for attempt in range(1, MAX_RETRIES + 1):
         sys.exit(0)
 
     except requests.RequestException as e:
+        # 通信エラーは一時的な不調のことが多いので、短い間隔で数回だけ再試行する
         print(f"通信エラー: {e}")
         if attempt < MAX_RETRIES:
-            print(f"{RETRY_WAIT // 60} 分後に再試行します...")
+            print(f"{RETRY_WAIT} 秒後に再試行します...")
             time.sleep(RETRY_WAIT)
 
 print("全試行が失敗しました。")
